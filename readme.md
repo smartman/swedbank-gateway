@@ -30,6 +30,22 @@ If request gets response then Event Smartman\Swedbank\Events\SwedbankResponseEve
 
 ## Support
  
- In case you need help in configuring or additional custom developments you can email to margus.pala@gmail.com or call +372 555 29 332  
+ In case you need help in configuring or additional custom developments you can email to margus.pala@gmail.com or call +372 555 29 332
+ All the complex bank side business rules prechecks are not implemented and help might be needed if errors are happening. For example bank has rules like below
+ 
+ Estonia: unstructured or structured remittance information or both needs to be present.
+ 
+ Latvia: Either unstructured or structured remittance information must be present but not both.
+ 
+ Lithuania: Either unstructured or structured remittance information must be present but not
+ both.
+ 
+ European Payment: Either unstructured or structured remittance information must be present
+ but not both.
+ 
+ International non-European payments: Only unstructured remittance information is accepted.
+ 
+ If unstructured and structured references are both used the maximum accepted combined
+ length is 130.  
  
    
