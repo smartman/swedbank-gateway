@@ -48,8 +48,8 @@ class SwedbankGatewayImplementation
      * @param $receiverIban
      * @param $receiverName
      * @param $currency
-     * @param $explanation
-     * @param bool $structured if plain text description or reference number
+     * @param $explanation payment information
+     * @param $refNo reference number for payments
      *
      * @return mixed
      */
@@ -58,8 +58,8 @@ class SwedbankGatewayImplementation
         $receiverIban,
         $receiverName,
         $currency,
-        $explanation,
-        $structured = false
+        $explanation = null,
+        $refNo = null
     ) {
         $correlationId = time() . str_random();
         $amount        = number_format($amountInCents / 100, 2);
@@ -107,12 +107,13 @@ class SwedbankGatewayImplementation
                     ->addChild("IBAN", $receiverIban);
 
         $remittance = $transaction->addChild("RmtInf");
-        if ($structured) {
+        if ($explanation != null) {
+            $remittance->addChild("Ustrd", $explanation);
+        }
+        if ($refNo != null) {
             $creditRefInf = $remittance->addChild("Strd")->addChild("CdtrRefInf");
             $creditRefInf->addChild("Tp")->addChild("CdOrPrtry")->addChild("Cd", "SCOR");
             $creditRefInf->addChild("Ref", $explanation);
-        } else {
-            $remittance->addChild("Ustrd", $explanation);
         }
 
         $request = $this->sendRequest($document->asXML(), $correlationId);

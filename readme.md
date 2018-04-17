@@ -20,13 +20,13 @@
 
 Laravel 5.5+ registers service provider Smartman\Swedbank\SwedbankGatewayProvider and Facade "Swedbank" => "Smartman\Swedbank\SwedbankFacade"
 
-Call `Swedbank::sendPreparePayment($amountInCents, $receiverIban, $receiverName, $currency, $explanation, $structured)`
+Call `Swedbank::sendPreparePayment($amountInCents, $receiverIban, $receiverName, $currency, $explanation, $referenceNumber)`
 
-$structured is boolean and means if the $explanation is plain text payment description or required reference number.
+$explanation or $referenceNumber must exist
 
 Payments are processed asynchronously. This means that `Swedbank::checkRequests()` must be executed periodically to see how payment is doing.
 
-If request gets response then Event Smartman\Swedbank\Events\SwedbankResponseEvent is dispatched with property ->swedbank_request that is of type `Smartman\Swedbank\SwedbankRequest`. You can examine the response_xml there if you need.
+If request gets response then Event Smartman\Swedbank\Events\SwedbankResponseEvent is dispatched with property ->swedbank_request that is of type `Smartman\Swedbank\SwedbankRequest`. You can examine the response_xml to see if there was errors with processing the payment.
 
 ## Support
  
