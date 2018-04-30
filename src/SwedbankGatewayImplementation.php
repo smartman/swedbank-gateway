@@ -14,16 +14,17 @@ class SwedbankGatewayImplementation
 
     public function __construct()
     {
-        $this->jarPath      = __DIR__ . "/jdigidoc/jdigidocutil-3.12.0-785.jar";
-        $this->keyPass      = config('swedbank.private_key_pass');
-        $this->keyPath      = config('swedbank.private_key');
-        $this->gatewayCert  = config('swedbank.gateway_certificate');
-        $this->gatewayCa    = config('swedbank.gateway_ca');
-        $this->clientCert   = config('swedbank.client_cert');
-        $this->clientSslKey = config('swedbank.client_ssl_key');
-        $this->agreementId  = config('swedbank.agreement_id');
-        $this->configPath   = config('swedbank.config_path');
-        $this->gatewayUrl   = config('swedbank.production_mode') ? "https://swedbankgateway.net" : "https://dev.hansagateway.net";
+        $this->jarPath        = __DIR__ . "/jdigidoc/jdigidocutil-3.12.0-785.jar";
+        $this->keyPass        = config('swedbank.private_key_pass');
+        $this->keyPath        = config('swedbank.private_key');
+        $this->gatewayCert    = config('swedbank.gateway_certificate');
+        $this->gatewayCa      = config('swedbank.gateway_ca');
+        $this->clientCert     = config('swedbank.client_cert');
+        $this->clientSslKey   = config('swedbank.client_ssl_key');
+        $this->agreementId    = config('swedbank.agreement_id');
+        $this->configPath     = config('swedbank.config_path');
+        $this->gatewayUrl     = config('swedbank.production_mode') ? "https://swedbankgateway.net" : "https://dev.hansagateway.net";
+        $this->productionMode = config('swedbank.production_mode');
 
         $this->client = new Client();
 
@@ -228,8 +229,7 @@ class SwedbankGatewayImplementation
             throw new \RuntimeException($message);
         }
 
-        $putRes = $this->client->request("PUT", $this->gatewayUrl, [
-            'verify'  => $this->gatewayCa,
+        $dataArr = [
             'cert'    => $this->clientCert,
             'ssl_key' => $this->clientSslKey,
             'headers' => [
@@ -237,7 +237,13 @@ class SwedbankGatewayImplementation
                 "X-AgreementId" => $this->agreementId
             ],
             'body'    => file_get_contents($cdocLocation)
-        ]);
+        ];
+
+        if ( ! $this->productionMode) {
+            $dataArr['verify'] = $this->gatewayCa;
+        }
+
+        $putRes = $this->client->request("PUT", $this->gatewayUrl, $dataArr);
 
         $gatewayMessage = $putRes->getHeader("X-Gateway-Message")[0];
         if ($gatewayMessage != "1") {
