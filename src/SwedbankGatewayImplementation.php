@@ -125,15 +125,21 @@ class SwedbankGatewayImplementation
     public function checkRequests()
     {
         info("Checking next message from Swedbank channel");
+
+        $dataArr = [
+            'cert'    => config('swedbank.client_cert'),
+            'ssl_key' => config('swedbank.client_ssl_key'),
+            "headers" => [
+                "X-AgreementId" => config('swedbank.agreement_id')
+            ]
+        ];
+
+        if ( ! $this->productionMode) {
+            $dataArr['verify'] = $this->gatewayCa;
+        }
+
         try {
-            $getRes = $this->client->request("GET", $this->gatewayUrl, [
-                'verify'  => config('swedbank.gateway_ca'),
-                'cert'    => config('swedbank.client_cert'),
-                'ssl_key' => config('swedbank.client_ssl_key'),
-                "headers" => [
-                    "X-AgreementId" => config('swedbank.agreement_id')
-                ]
-            ]);
+            $getRes = $this->client->request("GET", $this->gatewayUrl, $dataArr);
         } catch (ClientException $exception) {
             $status = $exception->getResponse()->getStatusCode();
             if ($status == "404") {
@@ -174,7 +180,7 @@ class SwedbankGatewayImplementation
         $extractResult  = exec($extractCommand, $extractOutput);
 
         if ( ! str_contains($decryptResult, "success") || ! str_contains($extractResult, "success")) {
-            $message = "Preparing crypted Swedbank call failed $correlationId";
+            $message = "Reading crypted Swedbank call failed $correlationId";
             Log::error("$message: decryptOutput=" . implode(" ",
                     $decrypOutput) . ", extractOutput=" . implode(" ", $extractOutput));
             throw new \RuntimeException($message);

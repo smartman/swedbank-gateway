@@ -1,6 +1,6 @@
 <?php
 
-namespace Smartman\Swedbank;;
+namespace Smartman\Swedbank;
 
 use Illuminate\Database\Eloquent\Model;
 
