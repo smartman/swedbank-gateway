@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'production_mode'     => false,
+    'production_mode'     => true,
     'private_key'         => base_path() . "/certs/itgarage.p12",
     'private_key_pass'    => "itgarage",
     'gateway_certificate' => base_path() . "/certs/sandbox_authentication_v2.cer",
