@@ -63,7 +63,7 @@ class SwedbankGatewayImplementation
         $refNo = null
     ) {
         $correlationId = time() . str_random();
-        $amount        = number_format($amountInCents / 100, 2);
+        $amount        = number_format($amountInCents / 100, 2,".","");
 
         $document = new \SimpleXMLElement("<Document></Document>");
         $document->addAttribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03");
