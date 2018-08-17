@@ -114,7 +114,7 @@ class SwedbankGatewayImplementation
         if ($refNo != null) {
             $creditRefInf = $remittance->addChild("Strd")->addChild("CdtrRefInf");
             $creditRefInf->addChild("Tp")->addChild("CdOrPrtry")->addChild("Cd", "SCOR");
-            $creditRefInf->addChild("Ref", $explanation);
+            $creditRefInf->addChild("Ref", $refNo);
         }
 
         $request = $this->sendRequest($document->asXML(), $correlationId);
