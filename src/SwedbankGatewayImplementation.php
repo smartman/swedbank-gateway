@@ -99,16 +99,16 @@ class SwedbankGatewayImplementation
         $reportingRequest->addChild("Acct");
         $reportingRequest->Acct->addChild("Id");
         $reportingRequest->Acct->Id->addChild('IBAN', $iban);
-        $reportingRequest->addChild('AcctOwner');
-        $reportingRequest->AcctOwner->addChild('Pty');
+        $reportingRequest->addChild('AcctOwnr');
+        $reportingRequest->AcctOwnr->addChild('Pty');
 
         $reportingRequest->addChild('RptgPrd');
         $reportingRequest->RptgPrd->addChild('FrToDt');
-        $reportingRequest->RptgPrd->FrToDt->addChild('FrDt');
-        $reportingRequest->RptgPrd->FrToDt->addChild('ToDt');
+        $reportingRequest->RptgPrd->FrToDt->addChild('FrDt', $startDate->toDateString());
+        $reportingRequest->RptgPrd->FrToDt->addChild('ToDt', $endDate->toDateString());
         $reportingRequest->RptgPrd->addChild('FrToTm');
-        $reportingRequest->RptgPrd->FrToTm->addChild('FrTm');
-        $reportingRequest->RptgPrd->FrToTm->addChild('ToTm');
+        $reportingRequest->RptgPrd->FrToTm->addChild('FrTm', $startDate->toTimeString());
+        $reportingRequest->RptgPrd->FrToTm->addChild('ToTm', $endDate->toTimeString());
         $reportingRequest->RptgPrd->addChild('Tp', 'ALLL');
 
         $request = $this->sendRequest($document->asXML(), $correlationId);
@@ -234,7 +234,7 @@ class SwedbankGatewayImplementation
             $swedbankRequest->correlation_id = $correlationId;
             $swedbankRequest->request_xml    = "";
             $swedbankRequest->save();
-        } elseif ($swedbankRequest->tracking_id != $trackingId) {
+        } elseif ($swedbankRequest->tracking_id != null && $swedbankRequest->tracking_id != $trackingId) {
             info("No request made with correlation ID $correlationId and received tracking $trackingId. Most likely PeriodicStatement, making sure correlation_ud is unique");
 
             $swedbankRequest                 = new SwedbankRequest();
