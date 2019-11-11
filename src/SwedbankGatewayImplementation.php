@@ -227,12 +227,18 @@ class SwedbankGatewayImplementation
         $correlationId = $getRes->getHeader("CorrelationID")[0];
 
         $swedbankRequest = SwedbankRequest::where('correlation_id', $correlationId)->first();
-
-        if ( ! $swedbankRequest) { // in this case there are no requests sent, for example scheduel account statements
+        if ( ! $swedbankRequest) { // in this case there are no requests sent, for example periodic account statements
             info("No request made with correlation ID $correlationId, tracking $trackingId.");
 
             $swedbankRequest                 = new SwedbankRequest();
             $swedbankRequest->correlation_id = $correlationId;
+            $swedbankRequest->request_xml    = "";
+            $swedbankRequest->save();
+        } elseif ($swedbankRequest->tracking_id != $trackingId) {
+            info("No request made with correlation ID $correlationId and received tracking $trackingId. Most likely PeriodicStatement, making sure correlation_ud is unique");
+
+            $swedbankRequest                 = new SwedbankRequest();
+            $swedbankRequest->correlation_id = $correlationId . "-" . time() . bin2hex(random_bytes(10));
             $swedbankRequest->request_xml    = "";
             $swedbankRequest->save();
         }
@@ -317,7 +323,7 @@ class SwedbankGatewayImplementation
 
         if ( ! strpos($signResult, "success")) {
             $message = "Preparing signing Swedbank call failed $correlationId";
-            Log::error("$message: signOutput=" . implode(" ",                    $signOutput));
+            Log::error("$message: signOutput=" . implode(" ", $signOutput));
             throw new \RuntimeException($message);
         }
 
