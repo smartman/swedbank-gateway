@@ -1,6 +1,6 @@
 {
   "name": "smartman/swedbank-gateway",
-  "description": "Swedbank Gateway integration for Laravel. Supported operation is preparing payment in Swedbank business client internet bank. For additional operations or questions about this plugin please contact margus.pala@gmail.com",
+  "description": "Swedbank Gateway integration for Laravel. For additional operations or questions about this plugin please contact margus.pala@gmail.com",
   "license": "MIT",
   "authors": [
     {
@@ -10,7 +10,11 @@
   ],
   "require": {
     "guzzlehttp/guzzle": "*",
-    "nesbot/carbon": "*"
+    "nesbot/carbon": "*",
+    "illuminate/support": "*",
+    "monolog/monolog": "*",
+    "ext-json": "*",
+    "ext-SimpleXML": "*"
   },
   "autoload": {
     "psr-4": {

@@ -7,7 +7,6 @@ use Carbon\Carbon;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use Illuminate\Support\Facades\Log;
-use Smartman\Swedbank\Facade\Swedbank;
 
 class SwedbankGatewayImplementation
 {
@@ -28,7 +27,7 @@ class SwedbankGatewayImplementation
 
         $this->client = new Client();
 
-        $this->path = storage_path() . "/swedbank";
+        $this->path = sys_get_temp_dir() . "/swedbank";
         if ( ! file_exists($this->path)) {
             mkdir($this->path, 0750);
         }
@@ -39,9 +38,82 @@ class SwedbankGatewayImplementation
         $date = Carbon::now()->toDateTimeString();
         $xml  = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Ping><Value>Wassup $date</Value></Ping>";
 
-        $request = Swedbank::sendRequest($xml);
+        $request = $this::sendRequest($xml);
 
         return "Ping sent, id=$request->id";
+    }
+
+    /**
+     * @param $startDate string or Carbon from what date we request account statement
+     * @param $endDate string or Carbon until what date we request account statement
+     *
+     * @return SwedbankRequest
+     * @throws \Exception
+     */
+    public function getAccountStatement($startDate, $endDate, $iban = null)
+    {
+        if ($iban == null) {
+            $iban = config('swedbank.payee_account');
+        }
+        if ( ! $endDate || ! $startDate) {
+            Log::error("Missing endDate or missing startDate: " . json_encode([$startDate, $endDate]));
+
+            return null;
+        }
+
+        $today = Carbon::today();
+        if (is_string($endDate)) {
+            $endDate = Carbon::parse($endDate);
+        }
+        if (is_string($startDate)) {
+            $startDate = Carbon::parse($startDate);
+        }
+
+        if ($startDate->gt($endDate) || $endDate->gt($today)) {
+            Log::error("Account statement start date cannot be more than end date and end date cannot be in the future. " . json_encode([
+                    $startDate,
+                    $endDate,
+                    $today
+                ]));
+
+            return null;
+        }
+
+        if ($endDate->lt($today)) {
+            $responseMessageIdentifier = "camt.053.001.02";
+        } elseif ($endDate->eq($today)) {
+            $responseMessageIdentifier = "camt.052.001.02";
+        }
+
+        $correlationId = time() . bin2hex(random_bytes(10));
+
+        $document = new \SimpleXMLElement("<Document></Document>");
+        $document->addAttribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:camt.060.001.03");
+        $accountRequest = $document->addChild('AcctRptgReq');
+        $groupHeader    = $accountRequest->addChild("GrpHdr");
+        $groupHeader->addChild("MsgId", $correlationId);
+        $groupHeader->addChild("CreDtTm", Carbon::now()->toRfc3339String());
+        $reportingRequest = $accountRequest->addChild('RptgReq');
+        $reportingRequest->addChild("Id", $correlationId);
+        $reportingRequest->addChild("ReqdMsgNmId", $responseMessageIdentifier);
+        $reportingRequest->addChild("Acct");
+        $reportingRequest->Acct->addChild("Id");
+        $reportingRequest->Acct->Id->addChild('IBAN', $iban);
+        $reportingRequest->addChild('AcctOwner');
+        $reportingRequest->AcctOwner->addChild('Pty');
+
+        $reportingRequest->addChild('RptgPrd');
+        $reportingRequest->RptgPrd->addChild('FrToDt');
+        $reportingRequest->RptgPrd->FrToDt->addChild('FrDt');
+        $reportingRequest->RptgPrd->FrToDt->addChild('ToDt');
+        $reportingRequest->RptgPrd->addChild('FrToTm');
+        $reportingRequest->RptgPrd->FrToTm->addChild('FrTm');
+        $reportingRequest->RptgPrd->FrToTm->addChild('ToTm');
+        $reportingRequest->RptgPrd->addChild('Tp', 'ALLL');
+
+        $request = $this->sendRequest($document->asXML(), $correlationId);
+
+        return $request;
     }
 
     /**
@@ -62,8 +134,8 @@ class SwedbankGatewayImplementation
         $explanation = null,
         $refNo = null
     ) {
-        $correlationId = time() . str_random();
-        $amount        = number_format($amountInCents / 100, 2,".","");
+        $correlationId = time() . bin2hex(random_bytes(10));
+        $amount        = number_format($amountInCents / 100, 2, ".", "");
 
         $document = new \SimpleXMLElement("<Document></Document>");
         $document->addAttribute("xmlns", "urn:iso:std:iso:20022:tech:xsd:pain.001.001.03");
@@ -134,8 +206,8 @@ class SwedbankGatewayImplementation
             ]
         ];
 
-        if ( ! $this->productionMode) {
-            $dataArr['verify'] = $this->gatewayCa;
+        if ( ! $this->productionMode) {  // in production all certs are valid. In sandbox selfsigned need to be verified manually
+            $dataArr['verify'] = false;
         }
 
         try {
@@ -145,7 +217,7 @@ class SwedbankGatewayImplementation
             if ($status == "404") {
                 info("No messages right now");
 
-                return true;
+                return null;
             } else {
                 throw $exception;
             }
@@ -156,11 +228,13 @@ class SwedbankGatewayImplementation
 
         $swedbankRequest = SwedbankRequest::where('correlation_id', $correlationId)->first();
 
-        if ( ! $swedbankRequest) {
-            Log::error("No request made with correlation ID $correlationId, tracking $trackingId. Deleting anyway");
-            $this->sendDeleteCall($swedbankRequest, $trackingId);
+        if ( ! $swedbankRequest) { // in this case there are no requests sent, for example scheduel account statements
+            info("No request made with correlation ID $correlationId, tracking $trackingId.");
 
-            return false;
+            $swedbankRequest                 = new SwedbankRequest();
+            $swedbankRequest->correlation_id = $correlationId;
+            $swedbankRequest->request_xml    = "";
+            $swedbankRequest->save();
         }
 
         $swedbankRequest->tracking_id = $trackingId;
@@ -179,9 +253,16 @@ class SwedbankGatewayImplementation
         $extractCommand = "java -jar $this->jarPath -config $this->configPath -ddoc-in $responseBdocLocation -ddoc-extract $correlationId-response.xml $responseXmlLocation";
         $extractResult  = exec($extractCommand, $extractOutput);
 
-        if ( ! str_contains($decryptResult, "success") || ! str_contains($extractResult, "success")) {
+        if ( ! strpos($decryptResult, "success")) {
             $message = "Reading crypted Swedbank call failed $correlationId";
-            Log::error("$message: decryptOutput=" . implode(" ",
+            Log::error("$decryptCommand - $message: decryptOutput=" . implode(" ",
+                    $decrypOutput) . ", extractOutput=" . implode(" ", $extractOutput));
+            throw new \RuntimeException($message);
+        }
+
+        if ( ! strpos($extractResult, "success")) {
+            $message = "Reading crypted Swedbank call failed $correlationId";
+            Log::error("$extractCommand $message: decryptOutput=" . implode(" ",
                     $decrypOutput) . ", extractOutput=" . implode(" ", $extractOutput));
             throw new \RuntimeException($message);
         }
@@ -193,26 +274,32 @@ class SwedbankGatewayImplementation
 
         info("Received swedbank response for $swedbankRequest->id $correlationId $swedbankRequest->response_xml");
 
-
-        $xml = simplexml_load_string($swedbankRequest->response_xml);
+        $xml     = simplexml_load_string($swedbankRequest->response_xml);
+        $success = false;
         if (isset($xml->HGWError)) {
             Log::error("Swedbank gateway Request failed: " . $xml->HGWError->Message);
-            event(new SwedbankResponseEvent($swedbankRequest, false));
         } else {
-            event(new SwedbankResponseEvent($swedbankRequest, true));
+            $success = true;
         }
+
+        event(new SwedbankResponseEvent($swedbankRequest, $success));
 
         $this->sendDeleteCall($swedbankRequest);
 
         unlink($responseCdocLocation);
         unlink($responseBdocLocation);
         unlink($responseXmlLocation);
+
+        return [
+            'request' => $swedbankRequest,
+            'success' => $success
+        ];
     }
 
     protected function sendRequest($xml, $correlationId = null)
     {
         if ($correlationId == null) {
-            $correlationId = time() . str_random();
+            $correlationId = time() . bin2hex(random_bytes(10));
         }
 
         info("Sending Swedbank request with correlationId $correlationId: $xml ");
@@ -228,10 +315,15 @@ class SwedbankGatewayImplementation
         $cryptResult = exec("java -jar $this->jarPath -config $this->configPath -cdoc-recipient $this->gatewayCert HGW -cdoc-encrypt $bdocLocation $cdocLocation",
             $cryptOutput, $cryptStatus);
 
-        if ( ! str_contains($signResult, "success") || ! str_contains($cryptResult, "success")) {
-            $message = "Preparing crypted Swedbank call failed $correlationId";
-            Log::error("$message: signOutput=" . implode(" ",
-                    $signOutput) . ", cryptOutput=" . implode(" ", $cryptOutput));
+        if ( ! strpos($signResult, "success")) {
+            $message = "Preparing signing Swedbank call failed $correlationId";
+            Log::error("$message: signOutput=" . implode(" ",                    $signOutput));
+            throw new \RuntimeException($message);
+        }
+
+        if ( ! strpos($cryptResult, "success")) {
+            $message = "Preparing crypting Swedbank call failed $correlationId";
+            Log::error("$message: cryptOutput=" . implode(" ", $cryptOutput));
             throw new \RuntimeException($message);
         }
 

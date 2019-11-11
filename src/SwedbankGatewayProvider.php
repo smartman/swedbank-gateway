@@ -15,6 +15,7 @@ class SwedbankGatewayProvider extends ServiceProvider
             __DIR__ . '/config/swedbank.php'                                => config_path('swedbank.php'),
             __DIR__ . '/migrations/2018_03_20_084451_swedbank_requests.php' => database_path('/migrations/2018_03_20_084451_swedbank_requests.php'),
             __DIR__ . '/jdigidoc/jdigidoc.cfg'                              => config_path('jdigidoc.cfg'),
+            __DIR__ . '/jdigidoc/jdigidoc-sandbox.cfg'                      => config_path('jdigidoc-sandbox.cfg'),
         ]);
     }
 
