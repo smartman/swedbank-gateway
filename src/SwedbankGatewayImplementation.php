@@ -235,7 +235,7 @@ class SwedbankGatewayImplementation
             $swedbankRequest->request_xml    = "";
             $swedbankRequest->save();
         } elseif ($swedbankRequest->tracking_id != null && $swedbankRequest->tracking_id != $trackingId) {
-            info("No request made with correlation ID $correlationId and received tracking $trackingId. Most likely PeriodicStatement, making sure correlation_ud is unique");
+            info("No request made with correlation ID $correlationId and received tracking $trackingId (previously $swedbankRequest->tracking_id). Most likely PeriodicStatement, making sure correlation_ud is unique");
 
             $swedbankRequest                 = new SwedbankRequest();
             $swedbankRequest->correlation_id = $correlationId . "-" . time() . bin2hex(random_bytes(10));
