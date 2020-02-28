@@ -18,7 +18,7 @@ class SwedbankRequests extends Migration
             $t->string('correlation_id')->unique();
             $t->text('request_xml');
             $t->string('tracking_id')->nullable()->unique();
-            $t->text('response_xml')->nullable();
+            $t->mediumText('response_xml')->nullable();
             $t->boolean('deleted')->default(false);
             $t->timestamps();
         });
